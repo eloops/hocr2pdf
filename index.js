@@ -1,7 +1,6 @@
 var fs = require('fs')
 var $ = require('cheerio')
 var paperSizes = require('./papersizes.js')
-var PDFDocument = require('pdfkit')
 
 var boxPattern = /(\d+)\s(\d+)\s(\d+)\s(\d+).{0,12}(\d{0,3})/
 var inch = 72
@@ -15,7 +14,7 @@ function hocrConv(hocrFile, dpi) {
 
   hocrConv.prototype.rotate = function(coords, rotation) {
     var self = this
-    var rotCoords = [0,0,0,0]
+    var rotCoords = [0,0,0,0,0]
     if (coords.length !== 5 || !rotation) {
       return coords
     }
@@ -30,7 +29,7 @@ function hocrConv(hocrFile, dpi) {
     } else if (rotation == 270) {
       rotCoords = [coords[1], pWidth - coords[2], coords[3], pWidth - coords[0], 270]
     } else {
-      rotCoords = coords
+      rotCoords = [coords[0],coords[1],coords[2],coords[3],0]
     }
     return rotCoords
   }
@@ -101,14 +100,10 @@ function hocrConv(hocrFile, dpi) {
     return inpStr
   }
   
-  hocrConv.prototype.genBounds = function(pdfStream) {
+  hocrConv.prototype.drawParagraphBoxes = function() {
     var self = this
-    if (!pdfStream) {
-      throw new Error('--- No PDFDocument passed in')
-    } else {
-      var pdf = pdfStream
-    }
-    
+    var bboxes = []
+
     // iterate through paragraphs & draw paragraph bounding boxes if enabled
     self.hocr('p').map(function(i, ocr_par) {
       var isPara = false
@@ -117,6 +112,7 @@ function hocrConv(hocrFile, dpi) {
         isPara = true
       }
       
+      // note textangle is on span/ocr_line, which is a child of span/ocr_par 
       var rot = self.elementCoordinates($(this).children('.ocr_line'))[4]
       var pCoords = self.elementCoordinates($(this))
       pCoords = self.rotate(pCoords, rot)
@@ -126,15 +122,17 @@ function hocrConv(hocrFile, dpi) {
       var py2 = self.px2pt(pCoords[3] - pCoords[1])
 
       if (isPara) {
-        pdf.rect(px1, py1, px2, py2)
-          .strokeColor('#ADD8E6')
-          .fillColor('#ADD8E6')
-          .lineWidth(0)
-          .fillOpacity(1)
-          .stroke()
+        bboxes.push([px1,py1,px2,py2])
       }
+      
     })
-    
+    return bboxes
+  }
+  
+  hocrConv.prototype.drawWordBoxes = function() {
+    var self = this
+    var bboxes = []
+
     // sanity check: if there's no span/ocrx_word elements, we'll use the span/ocr_line elements
     if (self.hocr('span').hasClass('ocrx_word')) {
       var elemclass = 'ocrx_word'
@@ -151,7 +149,7 @@ function hocrConv(hocrFile, dpi) {
         isWord = true
       }
 
-      // grab the co-ordinates from the title attribute
+      // note textangle is on span/ocr_line, which is a parent of span/ocrx_word
       var rot = self.elementCoordinates($(this).parent('.ocr_line'))[4]
       var wCoords = self.elementCoordinates($(this))
       wCoords = self.rotate(wCoords, rot)
@@ -162,26 +160,16 @@ function hocrConv(hocrFile, dpi) {
       var wy2 = self.px2pt(wCoords[3] - wCoords[1])
      
       if (isWord) {
-         pdf.rect(wx1, wy1, wx2, wy2)
-          .strokeColor('#90EE90')
-          .lineWidth(0.5)
-          .fillColor('#90EE90')
-          .fillOpacity(0.5)
-          .dash(6, {space: 3})
-          .stroke()
+        bboxes.push([wx1,wy1,wx2,wy2])
       }
+      
     })
+    return bboxes
   }
   
-  hocrConv.prototype.genWords = function(pdfStream, fontName) {
+  hocrConv.prototype.getWords = function() {
     var self = this
-    if (!pdfStream) {
-      throw new Error('--- No PDFDocument passed in')
-    } else {
-      var pdf = pdfStream
-    }
-    
-    var fontName = (!fontName) ? 'Helvetica' : fontName
+    var bboxes = []
 
     // sanity check: if there's no span/ocrx_word elements, we'll use the span/ocr_line elements
     if (self.hocr('span').hasClass('ocrx_word')) {
@@ -211,32 +199,10 @@ function hocrConv(hocrFile, dpi) {
       
       // if there are words to be drawn, draw them.
       if (words) {
-        pdf.fontSize(wy2)
-        pdf.font(fontName)
-        pdf.fillColor('black')
-        pdf.text(words, wx1, wy1), {
-            width: wx2,
-            height: wy2,
-            align: 'justify'
-        }
+        bboxes.push([wx1,wy1,wx2,wy2,words])
       }
     })
-  }
-  
-  // function for overlaying an image to the target pdfstream
-  hocrConv.prototype.overlayImage = function(pdfStream, imageFile) {
-    var self = this
-    if (!pdfStream) {
-      throw new Error('--- No PDFDocument passed in')
-    } else {
-      var pdf = pdfStream
-    }
-
-    if (imageFile) {
-      pdf.image(imageFile, 0, 0, {
-        fit: [self.width, self.height]
-      })
-    }
+    return bboxes
   }
 
   // init vars
@@ -246,8 +212,9 @@ function hocrConv(hocrFile, dpi) {
   this.height = 0
   
   // read in the given hocr file
-  this.htmlString = fs.readFileSync(hocrFile).toString()
-  this.hocr = $.load(this.htmlString)
+  console.log(typeof(hocrFile))
+  // this.htmlString = fs.readFileSync(hocrFile).toString()
+  this.hocr = $.load(hocrFile.toString())
   
   // find the overall rotation of the doc as reported by tesseract
   var countOrients = [0,0,90,0,180,0,270,0]
