@@ -1,32 +1,68 @@
-# You've added your first ReadMe file!
-A README.md file is intended to quickly orient readers to what your project can do.  New to Markdown? [Learn more](http://go.microsoft.com/fwlink/p/?LinkId=524306&clcid=0x409)
+# hocr2pdf
 
-## Edit this ReadMe and commit your change to a topic branch
-In Git, branches are cheap.  You should use them whenever you're making changes to your repository.  Edit this file by clicking on the edit icon.
+Takes a hocr file (output from the likes of Tesseract / Omnipage / ABBYY FineReader) and merges with an image to create a searchable PDF file. As of 30/08/2015 it will also take advantage of the textangle value in `ocr_line` class span's when processing to convert words/bbox's to their correct orientation.
 
-Then make some changes to this ReadMe file.
+I think only newer builds of Tesseract will utilise this correctly, run something like the following to generate a sample hocr file:
 
-> Make some **edits** to _this_ blockquote
+````
+> tesseract.exe infile.tif outfile -psm 1 hocr
+````
 
-When you are done, click the dropdown arrow next to the save button - that will allow you to commit your changes to a new branch.
+Utilises [pdfkit](http://github.com/devongovett/pdfkit) for PDF drawing and [cheerio](https://github.com/cheeriojs/cheerio) for HTML parsing.
 
-## Create a pull request to contribute your changes back into master
-Pull requests are the way to move changes from a topic branch back into the master branch.
+```javascript
+var fs = require('fs')
+var PDFDocument = require('pdfkit')
+var hocrConv = require('./index.js')
 
-Click on the **Pull Requests** page in the **CODE** hub, then click "New Pull Request" to create a new pull request from your topic branch to the master branch.
+// Create new hocrConv object with hocr file
+var hocrObj = new hocrConv('hocr_output.html')
 
-When you are done adding details, click "Create Pull request". Once a pull request is sent, reviewers can see your changes, recommend modifications, or even push follow-up commits.
+var options = {
+  size: [
+    hocrObj.width,
+    hocrObj.height,
+  ],
+  margin: 0  // you want a margin of zero
+}
 
-First time creating a pull request?  [Learn more](http://go.microsoft.com/fwlink/?LinkId=533211&clcid=0x409)
+//start a new PDF doc
+var doc = new PDFDocument(options)
+var stream = fs.createWriteStream('output.pdf')
+doc.pipe(stream)
 
-### Congratulations! You've completed the grand tour of the CODE hub!
+// generate the words
+hocrObj.genWords(doc)
 
-# Next steps
+//overlay the image - pdfkit only supports PNG & JPEG
+//note you may have to check if it's rotated & rotate the image using an image library
+hocrObj.overlayImage(doc, 'imagefile.png')
 
-If you haven't done so yet:
-* [Install Visual Studio](http://go.microsoft.com/fwlink/?LinkId=309297&clcid=0x409&slcid=0x409)
-* [Install Git](http://git-scm.com/downloads)
+// optional: draw bounding boxes around paragraphs & words
+hocrObj.genBounds(doc)
 
-Then clone this repo to your local machine to get started with your own project.
+// finalise the PDF
+doc.end()
 
-Happy coding!
+//thats it.
+```
+
+Note that the PDF canvas creates a new layer every time you draw / write / insert an image. So the order you do it in matters.
+
+Oh, and:
+```javascript
+var dpi_of_original_image = 300
+
+hocrObj.findPageSize(dpi_of_original_image)
+// will return an array with width, height, name & orientation of page size
+// ie [595, 842, 'A4', 'Portrait']
+
+console.log(hocrObj.rotation) // detected rotation
+console.log(hocrObj.dmns) // raw dimensions array from searching hocr file
+console.log(hocrObj.width)
+console.log(hocrObj.height)
+console.log(hocrObj.hocr) // cheerio object for doing DOM traversal etc.
+
+```
+
+Yeah I'm not sure what I needed that for (`findPageSize`). It might come in handy later?
