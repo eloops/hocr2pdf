@@ -12,7 +12,7 @@ function hocrConv(hocrFile, dpi) {
     var point = parseFloat(pxl * (inch / this.dpi))
     return +(Math.round(point + "e+2") + "e-2")
   }
-  
+
   hocrConv.prototype.rotate = function(coords, rotation) {
     var self = this
     var rotCoords = [0,0,0,0]
