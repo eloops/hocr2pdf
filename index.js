@@ -7,7 +7,7 @@ var boxPattern = /(\d+)\s(\d+)\s(\d+)\s(\d+).{0,12}(\d{0,3})/
 var inch = 72
 
 function hocrConv(hocrFile, dpi) {  
-  
+
   hocrConv.prototype.px2pt = function(pxl) {
     var point = parseFloat(pxl * (inch / this.dpi))
     return +(Math.round(point + "e+2") + "e-2")
@@ -19,10 +19,10 @@ function hocrConv(hocrFile, dpi) {
     if (coords.length !== 5 || !rotation) {
       return coords
     }
-    
+
     var pWidth = this.dmns[3] - this.dmns[1]
     var pHeight = this.dmns[4] - this.dmns[2]
-    
+
     if (rotation == 90) {
       rotCoords = [pHeight - coords[3], coords[0], pHeight - coords[1], coords[2], 90]
     } else if (rotation == 180) {
