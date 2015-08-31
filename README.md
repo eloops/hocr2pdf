@@ -8,15 +8,19 @@ I think only newer builds of Tesseract will utilise this correctly, run somethin
 > tesseract.exe infile.tif outfile -psm 1 hocr
 ````
 
-Utilises [pdfkit](http://github.com/devongovett/pdfkit) for PDF drawing and [cheerio](https://github.com/cheeriojs/cheerio) for HTML parsing.
+Use [pdfkit](http://github.com/devongovett/pdfkit) to draw PDF files.
+
+Utilises [cheerio](https://github.com/cheeriojs/cheerio) for HTML parsing.
 
 ```javascript
 var fs = require('fs')
 var PDFDocument = require('pdfkit')
+var sharp = require('sharp') // http://sharp.dimens.io
 var hocrConv = require('./index.js')
 
 // Create new hocrConv object with hocr file
-var hocrObj = new hocrConv('hocr_output.html')
+var hocrObj = new hocrConv(fs.readFileSync('hocr_output.html'))
+var image = fs.readFileSync('image.png')
 
 var options = {
   size: [
@@ -32,14 +36,50 @@ var stream = fs.createWriteStream('output.pdf')
 doc.pipe(stream)
 
 // generate the words
-hocrObj.genWords(doc)
+var words = hocrObj.getWords()
+for (var x = 0; x < words.length; x++) {
+  // use height of bbox
+  hocrObj.fontSize(words[x][3])
+  hocrObj.font('Helvetica')
+  hocrObj.fillColor('black')
+  hocrObj.text(words[x][4], words[x][0], words[x][1]), {
+    width: words[x][2],
+    height: words[x][3],
+    aligh: 'centre'
+  }
+}
 
 //overlay the image - pdfkit only supports PNG & JPEG
-//note you may have to check if it's rotated & rotate the image using an image library
-hocrObj.overlayImage(doc, 'imagefile.png')
+if (hocrObj.rotation > 0) {
+  var imgBuf = sharp(image).rotate(hocrObj.rotation).toBuffer()
+  doc.image(imgBuf, 0, 0, {
+        fit: [hocrObj.width, hocrObj.height]
+  })
+}
 
-// optional: draw bounding boxes around paragraphs & words
-hocrObj.genBounds(doc)
+// optional: draw bounding boxes around paragraphs and/or words
+var paraboxes = newFile.drawParagraphBoxes()
+for (var w = 0; w < wordboxes.length; w++) {
+  pdfFile.rect(wordboxes[w][0],wordboxes[w][1],
+               wordboxes[w][2],wordboxes[w][3])
+         .strokeColor('#ADD8E6')
+         .fillColor('#ADD8E6')
+         .lineWidth(0)
+         .fillOpacity(1)
+         .stroke()
+}
+
+var wordboxes = newFile.drawWordBoxes()
+for (var p = 0; p < paraboxes.length; p++) {
+  pdfFile.rect(paraboxes[p][0],paraboxes[p][1],
+               paraboxes[p][2],paraboxes[p][3])
+         .strokeColor('#90EE90')
+         .lineWidth(0.5)
+         .fillColor('#90EE90')
+         .fillOpacity(0.5)
+         .dash(6, {space: 3})
+         .stroke()
+}
 
 // finalise the PDF
 doc.end()
