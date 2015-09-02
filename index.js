@@ -212,7 +212,6 @@ function hocrConv(hocrFile, dpi) {
   this.height = 0
   
   // read in the given hocr file
-  console.log(typeof(hocrFile))
   // this.htmlString = fs.readFileSync(hocrFile).toString()
   this.hocr = $.load(hocrFile.toString())
   
