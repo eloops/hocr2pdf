@@ -28,6 +28,7 @@ sharp(fs.readFileSync(imageFile))
   .toBuffer(function(err, data, info) {
     if (err) { throw err }
   
+    console.log(newFile.wordStr())
     // var words = newFile.getWords()
     // for (var x = 0; x < words.length; x++) {
     //   // use height of bbox

@@ -12,6 +12,35 @@ function hocrConv(hocrFile, dpi) {
     return +(Math.round(point + "e+2") + "e-2")
   }
 
+  hocrConv.prototype.wordStr = function() {
+    var self = this
+    var wordString = ''
+
+    // sanity check: if there's no span/ocrx_word elements, we'll use the span/ocr_line elements
+    if (self.hocr('span').hasClass('ocrx_word')) {
+      var elemclass = 'ocrx_word'
+    } else {
+      var elemclass = 'ocr_line'
+    }
+
+    // iterate through span elements
+    self.hocr('span').map(function(i, ocr_words) {
+      var words = ''
+      var tClass = $(this).attr('class')
+      // only use it if it's what we want
+      if ( elemclass === tClass) {
+        words = self.cleanUp($(this).text())
+        words = words.replace(/\r?\n|\r/g, ' ')
+      }
+      
+      // if there are words to be drawn, draw them.
+      if (words) {
+        wordString += words + ' '
+      }
+    })
+    return wordString
+  }
+
   hocrConv.prototype.rotate = function(coords, rotation) {
     var self = this
     var rotCoords = [0,0,0,0,0]
