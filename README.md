@@ -50,6 +50,7 @@ for (var x = 0; x < words.length; x++) {
 }
 
 //overlay the image - pdfkit only supports PNG & JPEG
+// Note this code does not work at present
 if (hocrObj.rotation > 0) {
   var imgBuf = sharp(image).rotate(hocrObj.rotation).toBuffer()
   doc.image(imgBuf, 0, 0, {
@@ -58,7 +59,7 @@ if (hocrObj.rotation > 0) {
 }
 
 // optional: draw bounding boxes around paragraphs and/or words
-var paraboxes = newFile.drawParagraphBoxes()
+var wordboxes = newFile.drawWordBoxes()
 for (var w = 0; w < wordboxes.length; w++) {
   pdfFile.rect(wordboxes[w][0],wordboxes[w][1],
                wordboxes[w][2],wordboxes[w][3])
@@ -69,7 +70,7 @@ for (var w = 0; w < wordboxes.length; w++) {
          .stroke()
 }
 
-var wordboxes = newFile.drawWordBoxes()
+var paraboxes = newFile.drawParagraphBoxes()
 for (var p = 0; p < paraboxes.length; p++) {
   pdfFile.rect(paraboxes[p][0],paraboxes[p][1],
                paraboxes[p][2],paraboxes[p][3])
